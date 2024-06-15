@@ -1,6 +1,8 @@
 from decimal import Decimal, getcontext
 from pydantic import BaseModel
 from typing import Optional
+import heapq
+from collections import defaultdict, deque
 
 class Token(BaseModel):
     chain: str
@@ -127,6 +129,7 @@ token_manager.add_token("Ethereum", "WUSDT", random.randint(1000, 10000))
 token_manager.add_token("Polygon", "bUSDT", random.randint(1000, 10000))
 token_manager.add_token("Polygon", "USDT", random.randint(1000, 10000))
 token_manager.add_token("Polygon", "WUSDT", random.randint(1000, 10000))
+token_manager.add_token("Polygon", "aaveUSDT", random.randint(1000, 10000))
 
 # Helper function to generate random fee
 def random_fee(base_fee=0.0025, variation=0.15):
@@ -136,7 +139,92 @@ def random_fee(base_fee=0.0025, variation=0.15):
 uniswap_ethereum = Dex("Uniswap-Ethereum", token_manager.get_token("Ethereum", "USDT"), token_manager.get_token("Ethereum", "WUSDT"), fee_percent=random_fee())
 quickswap_polygon = Dex("Quickswap-Polygon", token_manager.get_token("Polygon", "bUSDT"), token_manager.get_token("Polygon", "USDT"), fee_percent=random_fee())
 uniswap_polygon = Dex("Uniswap-Polygon", token_manager.get_token("Polygon", "USDT"), token_manager.get_token("Polygon", "WUSDT"), fee_percent=random_fee())
+uniswap_polygon_aave = Dex("Uniswap-Polygon", token_manager.get_token("Polygon", "aaveUSDT"), token_manager.get_token("Polygon", "USDT"), fee_percent=random_fee())
 
 # Initialize Bridges with random fees
 synapse = Bridge("Synapse", token_manager.get_token("Ethereum", "USDT"), token_manager.get_token("Polygon", "USDT"), fee_percent=random_fee())
 polybridge = Bridge("Polybridge", token_manager.get_token("Ethereum", "USDT"), token_manager.get_token("Polygon", "bUSDT"), fee_percent=random_fee())
+
+class Graph:
+    def __init__(self):
+        self.nodes = set()
+        self.edges = defaultdict(list)
+        self.weights = {}
+
+    def add_node(self, value):
+        self.nodes.add(value)
+
+    def add_edge(self, from_node, to_node, weight):
+        self.edges[from_node].append(to_node)
+        self.edges[to_node].append(from_node)
+        self.weights[(from_node, to_node)] = weight
+        self.weights[(to_node, from_node)] = weight
+
+def dijkstra(graph: Graph, initial: TokenNode, target: TokenNode):
+    shortest_paths = {initial: (None, 0)}
+    current_node = initial
+    visited = set()
+    
+    while current_node is not None:
+        if current_node == target:
+            break
+        
+        visited.add(current_node)
+        destinations = graph.edges[current_node]
+        weight_to_current_node = shortest_paths[current_node][1]
+
+        for next_node in destinations:
+            weight = graph.weights[(current_node, next_node)] + weight_to_current_node
+            if next_node not in shortest_paths:
+                shortest_paths[next_node] = (current_node, weight)
+            else:
+                current_shortest_weight = shortest_paths[next_node][1]
+                if current_shortest_weight > weight:
+                    shortest_paths[next_node] = (current_node, weight)
+        
+        next_destinations = {node: shortest_paths[node] for node in shortest_paths if node not in visited}
+        if not next_destinations:
+            break
+        current_node = min(next_destinations, key=lambda k: next_destinations[k][1])
+
+    # Reconstruct the shortest path to the target node
+    path = []
+    current_node = target
+    while current_node is not None:
+        path.append(current_node)
+        next_node = shortest_paths[current_node][0]
+        current_node = next_node
+    path = path[::-1]
+    
+    return path, shortest_paths[target][1] if target in shortest_paths else ([], float('infinity'))
+
+# Create graph and add nodes and edges
+graph = Graph()
+
+# Add nodes
+for token in token_manager.get_all_keys():
+    graph.add_node(token)
+
+# Add edges with weights
+def add_edges_for_lp(graph, lp: LPExchange):
+    token_a_node = (lp.get_token_a().chain, lp.get_token_a().name)
+    token_b_node = (lp.get_token_b().chain, lp.get_token_b().name)
+    a_to_b_weight = lp.fee_percent + abs(lp.get_a_reserve() - lp.get_b_reserve())
+    b_to_a_weight = lp.fee_percent + abs(lp.get_b_reserve() - lp.get_a_reserve())
+    graph.add_edge(token_a_node, token_b_node, a_to_b_weight)
+    graph.add_edge(token_b_node, token_a_node, b_to_a_weight)
+
+# Adding edges for each LP
+add_edges_for_lp(graph, uniswap_ethereum)
+add_edges_for_lp(graph, quickswap_polygon)
+add_edges_for_lp(graph, uniswap_polygon)
+add_edges_for_lp(graph, uniswap_polygon_aave)
+add_edges_for_lp(graph, synapse)
+add_edges_for_lp(graph, polybridge)
+
+# Run Dijkstra's algorithm from a starting node to a target node
+start_token = ("Ethereum", "WUSDT")
+target_token = ("Polygon", "aaveUSDT")
+shortest_path, cost = dijkstra(graph, start_token, target_token)
+print("Shortest path:", shortest_path)
+print("Cost:", cost)
