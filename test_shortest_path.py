@@ -1,5 +1,6 @@
 import unittest
 import random
+from decimal import Decimal
 from a_wallet import TokenManager, Bridge, Dex, Graph, add_edges_for_lp, dijkstra, random_fee
 
 class TestDijkstraAlgorithm(unittest.TestCase):
@@ -28,29 +29,33 @@ class TestDijkstraAlgorithm(unittest.TestCase):
 
     def test_dijkstra_algorithm(self):
         graph = Graph()
+        large_swap_amount = Decimal(1000)
 
         for token in self.token_manager.get_all_keys():
             graph.add_node(token)
 
-        add_edges_for_lp(graph, self.uniswap_ethereum)
-        add_edges_for_lp(graph, self.quickswap_polygon)
-        add_edges_for_lp(graph, self.uniswap_polygon)
-        add_edges_for_lp(graph, self.uniswap_polygon_aave)
-        add_edges_for_lp(graph, self.aave_polygon)
-        add_edges_for_lp(graph, self.synapse)
-        add_edges_for_lp(graph, self.polybridge)
-        add_edges_for_lp(graph, self.arbitrumbridge)
-        add_edges_for_lp(graph, self.uniswap_arbitrum)
+        add_edges_for_lp(graph, self.uniswap_ethereum, large_swap_amount)
+        add_edges_for_lp(graph, self.quickswap_polygon, large_swap_amount)
+        add_edges_for_lp(graph, self.uniswap_polygon, large_swap_amount)
+        add_edges_for_lp(graph, self.uniswap_polygon_aave, large_swap_amount)
+        add_edges_for_lp(graph, self.aave_polygon, large_swap_amount)
+        add_edges_for_lp(graph, self.synapse, large_swap_amount)
+        add_edges_for_lp(graph, self.polybridge, large_swap_amount)
+        add_edges_for_lp(graph, self.arbitrumbridge, large_swap_amount)
+        add_edges_for_lp(graph, self.uniswap_arbitrum, large_swap_amount)
 
         start_token = ("Arbitrum", "USDT")
         target_token = ("Polygon", "aaveUSDT")
-        shortest_path, edges_used, cost = dijkstra(graph, start_token, target_token)
+        shortest_path_result = dijkstra(graph, start_token, target_token)
+        shortest_path, edges_used, cost = shortest_path_result.path, shortest_path_result.edges_used, shortest_path_result.total_cost
+
         print(f"Found path for start token: {start_token[1]} on {start_token[0]} to {target_token[1]} on {target_token[0]}")
         print("Route chosen is:")
         for edge in edges_used:
             from_node, to_node, lp_name = edge
             print(f"Using {lp_name} to swap {from_node[1]} on {from_node[0]} to {to_node[1]} on {to_node[0]}")
-        print("Total Cost:", cost)
+        print("Total Estimate Slippage Incurred:", cost)
+        print("\n")
 
         self.assertIsNotNone(shortest_path)
         self.assertIsNotNone(edges_used)
@@ -58,6 +63,7 @@ class TestDijkstraAlgorithm(unittest.TestCase):
 
     def test_unreachable_token(self):
         graph = Graph()
+        large_swap_amount = Decimal(1000)
 
         for token in self.token_manager.get_all_keys():
             graph.add_node(token)
@@ -66,7 +72,9 @@ class TestDijkstraAlgorithm(unittest.TestCase):
 
         start_token = ("Arbitrum", "USDT")
         target_token = ("Arbitrum", "bUSDT")
-        shortest_path, edges_used, cost = dijkstra(graph, start_token, target_token)
+        shortest_path_result = dijkstra(graph, start_token, target_token)
+        shortest_path, edges_used, cost = shortest_path_result.path, shortest_path_result.edges_used, shortest_path_result.total_cost
+
         print(f"Attempted path for start token: {start_token[1]} on {start_token[0]} to {target_token[1]} on {target_token[0]}")
         print("Route chosen is:")
         for edge in edges_used:
