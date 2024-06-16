@@ -1,7 +1,7 @@
 import random
 from decimal import Decimal, getcontext
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Tuple
 import heapq
 from collections import defaultdict, deque
 from typing import NamedTuple
@@ -150,11 +150,21 @@ class ShortestPathResult(NamedTuple):
     edges_used: list[tuple[TokenNode, TokenNode, str]]
     total_cost: float
 
+TokenNodeCost = Tuple[Optional[TokenNode], float]
+ShortestPaths = Dict[TokenNode, TokenNodeCost]
+
 def dijkstra(graph: Graph, initial: TokenNode, target: TokenNode) -> ShortestPathResult:
+    """
+    Current Djikstra's algorithm prioritize slippage and fees an only works with in-kind asset pairs across different chains
+
+    Further work could be done to generalize this version of path finding algorithm to support non-homongenously priced assets
+    as well as custom weight function to normalize weight of edges from not just slippage but miriad of preferences.
+    ie. confirmation time, gas fees and dollar slippage/price impacts on liquidity pools
+    """
     # Initialize a dictionary to store the shortest paths from the initial node to all other nodes.
     # Each entry in the dictionary maps a node (TokenNode) to a tuple containing the previous node in the path
     # and the total weight (cost) from the initial node to the current node.
-    shortest_paths: dict[TokenNode, tuple[Optional[TokenNode], float]] = {initial: (None, 0)}
+    shortest_paths: ShortestPaths = {initial: (None, 0)}
     # Start with the initial node as the current node.
     current_node: Optional[TokenNode] = initial
     # Create a set to keep track of visited nodes to avoid revisiting them.

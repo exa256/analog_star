@@ -86,5 +86,49 @@ class TestDijkstraAlgorithm(unittest.TestCase):
         self.assertEqual(edges_used, [])
         self.assertEqual(cost, float('infinity'))
 
+class TestSingleHopScenario(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.token_manager_dex1 = TokenManager()
+        cls.token_manager_dex1.add_token("Chain1", "TokenA", 1000)  # Assuming this is the liquidity amount for DEX1
+        cls.token_manager_dex1.add_token("Chain1", "TokenB", 1000)
+
+        cls.token_manager_dex2 = TokenManager()
+        cls.token_manager_dex2.add_token("Chain1", "TokenA", 10000)  # Assuming this is the liquidity amount for DEX2
+        cls.token_manager_dex2.add_token("Chain1", "TokenB", 10000)
+
+        # Two DEXs with different LP amounts and fees
+        # DEX2 has lower fees
+        cls.dex1 = Dex("DEX1", cls.token_manager_dex1.get_token("Chain1", "TokenA"), cls.token_manager_dex1.get_token("Chain1", "TokenB"), fee_percent=0.01)
+        cls.dex2 = Dex("DEX2", cls.token_manager_dex2.get_token("Chain1", "TokenA"), cls.token_manager_dex2.get_token("Chain1", "TokenB"), fee_percent=0.005)
+
+    def test_single_hop_with_two_dexes(self):
+        graph = Graph()
+        swap_amount = Decimal(500)
+
+        for token in self.token_manager_dex1.get_all_keys():
+            graph.add_node(token)
+
+        add_edges_for_lp(graph, self.dex1, swap_amount)
+        add_edges_for_lp(graph, self.dex2, swap_amount)
+
+        start_token = ("Chain1", "TokenA")
+        target_token = ("Chain1", "TokenB")
+        shortest_path_result = dijkstra(graph, start_token, target_token)
+        shortest_path, edges_used, cost = shortest_path_result.path, shortest_path_result.edges_used, shortest_path_result.total_cost
+
+        print(f"Found path for start token: {start_token[1]} on {start_token[0]} to {target_token[1]} on {target_token[0]}")
+        print("Route chosen is:")
+        for edge in edges_used:
+            from_node, to_node, lp_name = edge
+            print(f"Using {lp_name} to swap {from_node[1]} on {from_node[0]} to {to_node[1]} on {to_node[0]}")
+        print("Total Estimate Slippage Incurred:", cost)
+        print("\n")
+
+        self.assertIsNotNone(shortest_path)
+        self.assertIsNotNone(edges_used)
+        self.assertIsNotNone(cost)
+        self.assertEqual(edges_used[0][2], "DEX2")  # Ensure DEX2 is chosen due to lower fees and larger LP
+
 if __name__ == '__main__':
     unittest.main()
