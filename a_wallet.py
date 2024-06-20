@@ -41,6 +41,27 @@ class TokenManager:
     def get_all_keys(self) -> set[TokenNode]:
         return set(self.tokens.keys())
 
+def get_dollar_value(token: Token, amount: Decimal, price_dict: Optional[ Dict[TokenNode, Decimal] ] = None, is_dollar: bool = True) -> Decimal:
+    """
+    Calculate the dollar value of a given amount of a token.
+    
+    :param token: The token for which to calculate the dollar value.
+    :param amount: The amount of the token.
+    :param price_dict: A dictionary with token prices.
+    :param is_dollar: If True, return the input amount as the dollar value.
+    :return: The dollar value of the token amount.
+    """
+    if not price_dict:
+        return amount
+    if is_dollar:
+        return amount
+    
+    key = (token.chain, token.name)
+    if key not in price_dict:
+        raise ValueError(f"Price for {key} not found in the price dictionary.")
+    
+    price = price_dict[key]
+    return amount * price
 
 # constant function market making in python
 class LiquidityPool:
@@ -227,26 +248,38 @@ def dijkstra(graph: Graph, initial: TokenNode, target: TokenNode) -> ShortestPat
         return ShortestPathResult([], [], float('infinity'))
 
 
-def add_edges_for_lp(graph: Graph, lp: LPExchange, large_swap_amount: Decimal) -> None:
+def add_edges_for_lp(graph: Graph, lp: LPExchange, large_swap_amount: Decimal, price_dict: Optional[Dict[TokenNode, Decimal]] = None, is_dollar: bool = True) -> None:
     """
-    we make assumption that asset A and B is like-kinded asset, ie. stable coins
-    therefore weight is calculated as differences between the input/output aka. slippage
-
-    in reality we need price oracle and ways to determine dollar value of each asset, considering 
-    not only slippage but considering factors like relative volume, price impact on the pool
-    this would allow the algorithm to handle larger swap sizes and non homongenous trading pair like ETH-Stable
+    Calculate the weight based on the loss in dollar price.
     """
+    # Get the output amounts for the swap
     a_to_b_output = lp.get_b_from_a(large_swap_amount)
     b_to_a_output = lp.get_a_from_b(large_swap_amount)
     
-    a_to_b_slippage = (large_swap_amount - a_to_b_output) / large_swap_amount
-    b_to_a_slippage = (large_swap_amount - b_to_a_output) / large_swap_amount
+    # Calculate the dollar value of the input and output amounts
+    a_dollar_value = get_dollar_value(lp.get_token_a(), large_swap_amount, price_dict, is_dollar)
+    b_dollar_value_from_a = get_dollar_value(lp.get_token_b(), a_to_b_output, price_dict, is_dollar)
+    b_dollar_value = get_dollar_value(lp.get_token_b(), large_swap_amount, price_dict, is_dollar)
+    a_dollar_value_from_b = get_dollar_value(lp.get_token_a(), b_to_a_output, price_dict, is_dollar)
     
+    # Calculate the slippage in dollar terms
+    a_to_b_slippage = (a_dollar_value - b_dollar_value_from_a) / a_dollar_value
+    # print(f"a_dollar_value: {a_dollar_value}, b_dollar_value_from_a: {b_dollar_value_from_a}, a_to_b_slippage: {a_to_b_slippage}")
+    b_to_a_slippage = (b_dollar_value - a_dollar_value_from_b) / b_dollar_value
+    
+    # Ensure non-negative weights
     a_to_b_weight = max(a_to_b_slippage, 0)
+    print(f"a_to_b_weight: {a_to_b_weight}")
     b_to_a_weight = max(b_to_a_slippage, 0)
     
+    # Get the token nodes
     token_a_node = (lp.get_token_a().chain, lp.get_token_a().name)
     token_b_node = (lp.get_token_b().chain, lp.get_token_b().name)
     
+    # Debugging: Print the calculated weights
+    print(f"Adding edge from {token_a_node} to {token_b_node} with weight {a_to_b_weight}")
+    print(f"Adding edge from {token_b_node} to {token_a_node} with weight {b_to_a_weight}")
+    
+    # Add edges to the graph
     graph.add_edge(token_a_node, token_b_node, a_to_b_weight, lp.name)
     graph.add_edge(token_b_node, token_a_node, b_to_a_weight, lp.name)
