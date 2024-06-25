@@ -162,7 +162,7 @@ class TestMultiChainAssetPriceScenario(unittest.TestCase):
         cls.bungee_zksync_optimism2 = Bridge("Bungee-zkSync-Optimism2", cls.token_manager.get_token("zkSync", "USDT"), cls.token_manager.get_token("Optimism", "USDT"), fee_percent=random_fee())
         # UNCOMMENT FOR SHORT HOP
         # ===========
-        # cls.easy_bungee_zksync_gnosis = Bridge("Bungee-zkSync-Gnosis", cls.token_manager.get_token("zkSync", "USDT"), cls.token_manager.get_token("Gnosis", "xDAI"), fee_percent=random_fee())
+        cls.easy_bungee_zksync_gnosis = Bridge("Bungee-zkSync-Gnosis", cls.token_manager.get_token("zkSync", "USDT"), cls.token_manager.get_token("Gnosis", "xDAI"), fee_percent=random_fee())
 
         cls.gnosis_swap = Dex("Gnosis-Swap", cls.token_manager.get_token("Gnosis", "xDAI"), cls.token_manager.get_token("Gnosis", "EURE"), fee_percent=random_fee())
         cls.zkswap = Dex("zkSwap", cls.token_manager.get_token("zkSync", "USDC"), cls.token_manager.get_token("zkSync", "USDT"), fee_percent=random_fee())
@@ -183,7 +183,7 @@ class TestMultiChainAssetPriceScenario(unittest.TestCase):
         add_edges_for_lp(graph, self.bungee_zksync_optimism2, large_swap_amount)
         # UNCOMMENT FOR SHORT HOP
         # ===========
-        # add_edges_for_lp(graph, self.easy_bungee_zksync_gnosis, large_swap_amount)
+        add_edges_for_lp(graph, self.easy_bungee_zksync_gnosis, large_swap_amount)
 
         # Debugging: Print the graph structure
         print("Graph structure:")
