@@ -28,7 +28,7 @@ def deploy_dex(token1, token2, fee, chain_name, rpc_url):
 def deploy_bridge(token, name, rpc_url):
     command = f'forge create contracts/src/Bridge.sol:Bridge --constructor-args "{token}" "{name}" --rpc-url {rpc_url} --unlocked --from {ACCOUNT}'
     result = run_command(command)
-    return f"Bridge {name} with token {token} deployed at {result} on {rpc_url}"
+    return f"Bridge {name} with properlytoken {token} deployed at {result} on {rpc_url}"
 
 def main():
     log = []
@@ -50,7 +50,7 @@ def main():
     log.append(deploy_bridge("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", "bridge-b", DEST_CHAIN_RPC))
 
     # Log all outputs
-    with open('deployment_log.txt', 'w') as f:
+    with open('./logs/deployment_log.txt', 'w') as f:
         for entry in log:
             f.write(entry + '\n')
 

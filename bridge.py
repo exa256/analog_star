@@ -1,4 +1,4 @@
-# FIXME use proper deposit amount, user's address, use CFMM invariant properly and implement fees on bridging (destination amount)
+# FIXME use CFMM invariant to calculate output and implement fees on bridging (subtract destination amount)
 import time
 import json
 from web3 import Web3
@@ -36,6 +36,9 @@ def get_nonce_and_balance(bridge, web3):
 def get_deposit_amount(bridge, nonce):
     return bridge.functions.getDepositAmount(nonce).call()
 
+def get_depositor(bridge, nonce):
+    return bridge.functions.getDepositor(nonce).call()
+
 def release_tokens(bridge, web3, to, amount, private_key):
     tx = bridge.functions.release(to, amount).build_transaction({
         'nonce': web3.eth.get_transaction_count(ACCOUNT_SRC), # assume same as account_dst FIXME
@@ -59,12 +62,14 @@ def main():
 
         if current_nonce_src > last_nonce_src:
             amount_to_release = get_deposit_amount(bridge_src, last_nonce_src)
-            release_tokens(bridge_dest, web3_dest, ACCOUNT_DEST, amount_to_release, PRIVATE_KEY_DEST)
+            depositor_address = get_depositor(bridge_src, last_nonce_src)
+            release_tokens(bridge_dest, web3_dest, depositor_address, amount_to_release, PRIVATE_KEY_DEST)
             last_nonce_src = current_nonce_src
 
         if current_nonce_dest > last_nonce_dest:
             amount_to_release = get_deposit_amount(bridge_dest, last_nonce_dest)
-            release_tokens(bridge_src, web3_src, ACCOUNT_SRC, amount_to_release, PRIVATE_KEY_SRC)
+            depositor_address = get_depositor(bridge_dest, last_nonce_dest)
+            release_tokens(bridge_src, web3_src, depositor_address, amount_to_release, PRIVATE_KEY_SRC)
             last_nonce_dest = current_nonce_dest
 
         time.sleep(1)

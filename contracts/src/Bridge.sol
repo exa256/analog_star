@@ -13,6 +13,7 @@ contract Bridge is Ownable(msg.sender) {
     mapping(uint256 => bool) public depositExecuted;
     mapping(uint256 => bool) public releaseExecuted;
     mapping(uint256 => uint256) public depositAmounts; // New mapping to store deposit amounts
+    mapping(uint256 => address) public depositors; // New mapping to store depositor addresses
 
     constructor(address _token, string memory _name) {
         token = IERC20(_token);
@@ -26,6 +27,7 @@ contract Bridge is Ownable(msg.sender) {
         require(token.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         depositExecuted[depositNonce] = true;
         depositAmounts[depositNonce] = amount; // Store the deposit amount
+        depositors[depositNonce] = msg.sender; // Store the depositor's address
         depositNonce++;
         return amount;
     }
@@ -52,5 +54,9 @@ contract Bridge is Ownable(msg.sender) {
 
     function getDepositAmount(uint256 nonce) external view returns (uint256) {
         return depositAmounts[nonce]; // New function to get deposit amount by nonce
+    }
+
+    function getDepositor(uint256 nonce) external view returns (address) {
+        return depositors[nonce]; // New function to get depositor address by nonce
     }
 }

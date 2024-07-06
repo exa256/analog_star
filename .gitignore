@@ -4,3 +4,4 @@ __pycache__
 a_wallet_env
 cache
 out
+logs
