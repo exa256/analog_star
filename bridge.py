@@ -1,4 +1,4 @@
-
+# FIXME use proper deposit amount, user's address, use CFMM invariant properly and implement fees on bridging (destination amount)
 import time
 import json
 from web3 import Web3
@@ -11,7 +11,7 @@ with open('./contracts/out/Bridge.sol/Bridge.json') as f:
 SRC_CHAIN_RPC = "http://localhost:8545"
 DEST_CHAIN_RPC = "http://localhost:8546"
 BRIDGE_CONTRACT_ADDRESS_SRC = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
-BRIDGE_CONTRACT_ADDRESS_DST = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
+BRIDGE_CONTRACT_ADDRESS_DST = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
 ACCOUNT_SRC = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 ACCOUNT_DEST = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 PRIVATE_KEY_SRC = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -33,37 +33,39 @@ def get_nonce_and_balance(bridge, web3):
     balance = bridge.functions.getReserve().call()
     return nonce, balance
 
+def get_deposit_amount(bridge, nonce):
+    return bridge.functions.getDepositAmount(nonce).call()
+
 def release_tokens(bridge, web3, to, amount, private_key):
     tx = bridge.functions.release(to, amount).build_transaction({
-        'nonce': web3.eth.get_transaction_count(ACCOUNT_SRC), # assume same as account_dst
+        'nonce': web3.eth.get_transaction_count(ACCOUNT_SRC), # assume same as account_dst FIXME
         'gas': 2000000,
         'gasPrice': web3.to_wei('50', 'gwei')
     })
     signed_tx = web3.eth.account.sign_transaction(tx, private_key)
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash_str = web3.to_hex(tx_hash)
     print('released token on opposite bridge')
-    print(tx_hash)
-    return tx_hash
+    print(tx_hash_str)
+    return tx_hash_str
 
 def main():
-    last_nonce_src, last_balance_src = get_nonce_and_balance(bridge_src, web3_src)
-    last_nonce_dest, last_balance_dest = get_nonce_and_balance(bridge_dest, web3_dest)
+    last_nonce_src, _ = get_nonce_and_balance(bridge_src, web3_src)
+    last_nonce_dest, _ = get_nonce_and_balance(bridge_dest, web3_dest)
 
     while True:
-        current_nonce_src, current_balance_src = get_nonce_and_balance(bridge_src, web3_src)
-        current_nonce_dest, current_balance_dest = get_nonce_and_balance(bridge_dest, web3_dest)
+        current_nonce_src, _ = get_nonce_and_balance(bridge_src, web3_src)
+        current_nonce_dest, _ = get_nonce_and_balance(bridge_dest, web3_dest)
 
         if current_nonce_src > last_nonce_src:
-            amount_to_release = current_balance_src - last_balance_src
+            amount_to_release = get_deposit_amount(bridge_src, last_nonce_src)
             release_tokens(bridge_dest, web3_dest, ACCOUNT_DEST, amount_to_release, PRIVATE_KEY_DEST)
             last_nonce_src = current_nonce_src
-            last_balance_src = current_balance_src
 
         if current_nonce_dest > last_nonce_dest:
-            amount_to_release = current_balance_dest - last_balance_dest
+            amount_to_release = get_deposit_amount(bridge_dest, last_nonce_dest)
             release_tokens(bridge_src, web3_src, ACCOUNT_SRC, amount_to_release, PRIVATE_KEY_SRC)
             last_nonce_dest = current_nonce_dest
-            last_balance_dest = current_balance_dest
 
         time.sleep(1)
 
