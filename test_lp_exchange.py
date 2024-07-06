@@ -1,5 +1,5 @@
 import unittest
-from a_wallet import Token, LPExchange
+from pathway import Token, LPExchange
 from decimal import Decimal
 
 class TestLPExchange(unittest.TestCase):

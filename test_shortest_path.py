@@ -1,7 +1,7 @@
 import unittest
 import random
 from decimal import Decimal
-from a_wallet import TokenManager, Bridge, Dex, Graph, add_edges_for_lp, dijkstra, random_fee
+from pathway import TokenManager, Bridge, Dex, Graph, add_edges_for_lp, dijkstra, random_fee
 
 class TestMultiHop(unittest.TestCase):
     @classmethod
