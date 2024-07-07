@@ -2,9 +2,10 @@ import random
 from decimal import Decimal, getcontext
 from pydantic import BaseModel
 from typing import Optional, Dict, Tuple
-import heapq
+import json
+from web3 import Web3
 from collections import defaultdict, deque
-from typing import NamedTuple
+from typing import NamedTuple, Any
 
 
 class Token(BaseModel):
@@ -283,3 +284,67 @@ def add_edges_for_lp(graph: Graph, lp: LPExchange, large_swap_amount: Decimal, p
     # Add edges to the graph
     graph.add_edge(token_a_node, token_b_node, a_to_b_weight, lp.name)
     graph.add_edge(token_b_node, token_a_node, b_to_a_weight, lp.name)
+
+
+class RealDex(Dex):
+    def __init__(self, name: str, token_a: Token, token_b: Token, fee_percent: float, dex_address: str, rpc_url: str) -> None:
+        super().__init__(name, token_a, token_b, fee_percent)
+        self.web3 = Web3(Web3.HTTPProvider(rpc_url))
+        self.dex_address = dex_address
+        self.dex_contract = self.web3.eth.contract(address=dex_address, abi=self._get_abi('Dex'))
+
+    def _get_abi(self, contract_name: str) -> Any:
+        with open(f'./contracts/out/{contract_name}.sol/{contract_name}.json') as f:
+            contract_json = json.load(f)
+            return contract_json['abi']
+
+    def get_a_reserve(self) -> Decimal:
+        reserve = self.dex_contract.functions.getAReserve().call()
+        return Decimal(reserve)
+
+    def get_b_reserve(self) -> Decimal:
+        reserve = self.dex_contract.functions.getBReserve().call()
+        return Decimal(reserve)
+
+class RealBridge(Bridge):
+    def __init__(self, name: str, token_a: Token, token_b: Token, fee_percent: float, bridge_address_src: str, bridge_address_dst: str, rpc_url_src: str, rpc_url_dst: str) -> None:
+        super().__init__(name, token_a, token_b, fee_percent)
+        self.web3_src = Web3(Web3.HTTPProvider(rpc_url_src))
+        self.web3_dst = Web3(Web3.HTTPProvider(rpc_url_dst))
+        self.bridge_address_src = bridge_address_src
+        self.bridge_address_dst = bridge_address_dst
+        self.bridge_contract_src = self.web3_src.eth.contract(address=bridge_address_src, abi=self._get_abi('Bridge'))
+        self.bridge_contract_dst = self.web3_dst.eth.contract(address=bridge_address_dst, abi=self._get_abi('Bridge'))
+
+    def _get_abi(self, contract_name: str) -> Any:
+        with open(f'./contracts/out/{contract_name}.sol/{contract_name}.json') as f:
+            contract_json = json.load(f)
+            return contract_json['abi']
+
+    def get_a_reserve(self) -> Decimal:
+        reserve = self.bridge_contract_src.functions.getReserve().call()
+        return Decimal(reserve)
+
+    def get_b_reserve(self) -> Decimal:
+        reserve = self.bridge_contract_dst.functions.getReserve().call()
+        return Decimal(reserve)
+
+class RealToken:
+    def __init__(self, chain: str, name: str, token_address: str, rpc_url: str):
+        self.chain = chain
+        self.name = name
+        self.web3 = Web3(Web3.HTTPProvider(rpc_url))
+        self.token_address = token_address
+        self.token_contract = self.web3.eth.contract(address=token_address, abi=self._get_abi('Token'))
+
+    def _get_abi(self, contract_name: str) -> Any:
+        with open(f'./contracts/out/{contract_name}.sol/{contract_name}.json') as f:
+            contract_json = json.load(f)
+            return contract_json['abi']
+
+    def get_amount(self, account: str) -> int:
+        return self.token_contract.functions.balanceOf(account).call()
+
+    def to_token(self, account: str) -> Token:
+        amount = self.get_amount(account)
+        return Token(chain=self.chain, name=self.name, amount=amount)

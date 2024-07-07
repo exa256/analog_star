@@ -24,6 +24,14 @@ contract Dex {
         return token.balanceOf(address(this));
     }
 
+    function getAReserve() public view returns (uint256) {
+        return _getReserve(tokenA);
+    }
+
+    function getBReserve() public view returns (uint256) {
+        return _getReserve(tokenB);
+    }
+
     function _getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) private view returns (uint256) {
         uint256 amountInWithFee = amountIn * (10000 - feePercent) / 10000;
         return (amountInWithFee * reserveOut) / (reserveIn + amountInWithFee);

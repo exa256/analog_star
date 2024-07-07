@@ -64,6 +64,7 @@ def get_balance(token, address):
 
 def main():
     # Mint tokens to the bridge on both chains
+    print('seeding tokens to bridge contracts')
     mint_tokens(token_src, web3_src, BRIDGE_CONTRACT_ADDRESS_SRC, 10000, PRIVATE_KEY)
     mint_tokens(token_dest, web3_dest, BRIDGE_CONTRACT_ADDRESS_DST, 10000, PRIVATE_KEY)
 
@@ -72,18 +73,19 @@ def main():
     balance_dest_before = get_balance(token_dest, ACCOUNT)
 
     # Approve and deposit tokens on the source chain
+    print('approving and depositing token to bridge')
     approve_tokens(token_src, web3_src, BRIDGE_CONTRACT_ADDRESS_SRC, 10000, PRIVATE_KEY)
     deposit_tokens(bridge_src, web3_src, 100, PRIVATE_KEY)
 
     # Wait for the bridge service to process the deposit
-    time.sleep(5)
+    time.sleep(2)
 
     # Check balances after deposit
     balance_src_after = get_balance(token_src, ACCOUNT)
     balance_dest_after = get_balance(token_dest, ACCOUNT)
 
-    print(f"Source balance before: {balance_src_before}, after: {balance_src_after}")
-    print(f"Destination balance before: {balance_dest_before}, after: {balance_dest_after}")
+    print(f"Source wallet balance before bridge: {balance_src_before}, after: {balance_src_after}")
+    print(f"Destination wallet balance before bridge: {balance_dest_before}, after: {balance_dest_after}")
 
     assert balance_src_after < balance_src_before, "Source balance did not decrease"
     assert balance_dest_after > balance_dest_before, "Destination balance did not increase"

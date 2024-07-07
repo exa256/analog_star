@@ -2,12 +2,15 @@
 
 - [x] write mock smart contracts (dexs and bridges)
 - [x] configure script to deploy contracts on test chain
-- [ ] djikstra algorithm integrated with real chain data
-- [ ] trustless multichain smart contracts 
+- [x] djikstra algorithm integrated with real chain data
+- [ ] navigator script that executes the path for user
+- [ ] exposed flask api for client to fetch contracts, get pathfinding routes
+- [ ] cleanup & setup verification scripting
+- [ ] nice to have: local env orchestrations based on a JSON configuration
 
 Analog specific:
-- [ ] use Analog Watch for fetching contract data
-- [ ] use Analog GMP for trustless routing
+- [ ] use Analog GMP for trustless bridging
+- [ ] deploy contracts and run on testnet
 
 Wallet specific:
 - [ ] write CLI for control planes executing txs for best path
@@ -33,7 +36,26 @@ in root dir, run
 
 ## Running Dev Environment
 
-1. Spinning up local testnets environments
+compile smart contracts
+`cd ./contracts && forge compile`
+
+deploy 2 Anvil local rpc chains
+from root dir:
+`chmod +x ./scripts/chains.sh`
+`./scripts/chains.sh`
+
+deploy all the contracts, double check to make sure addresses are correct
+`python3 ./scripts/deploy.py`
+
+run the bridge listeniner
+`python3 -m bridge`
+
+try running test bridge deposit to ensure tokens are properly released via bridge
+`python3 -m test_bridge`
+you should see token released, logs from local rpcs and log on bridge listener
+
+running a test shortest path algorithm on real deployed contracts
+`python3 -m unittest test_integration_shortest_path`
 
 Following will be the static addresses for contracts deployed, given a fresh chain script is ran successfully
 ```
@@ -46,18 +68,3 @@ dex-b: 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
 bridge-b-src: 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
 bridge-b-dst: 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
 ```
-
-### Up and running
-
-deploy 2 Anvil local rpc chains
-`chmod -x ./scripts/chains.sh`
-`./scripts/chain.sh`
-
-deploy all the contracts, double check to make sure addresses are correct
-`python3 ./scripts/deploy.py`
-
-run the bridge listeniner
-`python3 -m bridge`
-
-try running test deposit to ensure tokens are properly released
-`python3 -m test_bridge`   
