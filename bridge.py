@@ -1,4 +1,5 @@
 # FIXME use CFMM invariant to calculate output and implement fees on bridging (subtract destination amount)
+# TODO accept configurations as arguments and not hardcoded constants
 import time
 import json
 from web3 import Web3
