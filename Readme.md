@@ -32,7 +32,7 @@ inside ./contracts, run
 `forge test`
 
 in root dir, run
-`python3 -m unittest`
+`python3 -m unittest test_shortest_path test_lp_exchange`
 
 ## Running Dev Environment
 
