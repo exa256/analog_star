@@ -1,6 +1,6 @@
-# FIXME use CFMM invariant to calculate output and implement fees on bridging (subtract destination amount)
 # TODO accept configurations as arguments and not hardcoded constants
 import time
+import math
 import json
 from web3 import Web3
 
@@ -40,6 +40,11 @@ def get_deposit_amount(bridge, nonce):
 def get_depositor(bridge, nonce):
     return bridge.functions.getDepositor(nonce).call()
 
+def calculate_output_amount(amount_in, reserve_in, reserve_out, fee_percent):
+    amount_in_with_fee = amount_in * (1 - fee_percent)
+    return (amount_in_with_fee * reserve_out) / (reserve_in + amount_in_with_fee)
+
+
 def release_tokens(bridge, web3, to, amount, private_key):
     tx = bridge.functions.release(to, amount).build_transaction({
         'nonce': web3.eth.get_transaction_count(ACCOUNT_SRC), # assume same as account_dst FIXME
@@ -54,23 +59,35 @@ def release_tokens(bridge, web3, to, amount, private_key):
     return tx_hash_str
 
 def main():
+    fee_percent = 0
     last_nonce_src, _ = get_nonce_and_balance(bridge_src, web3_src)
     last_nonce_dest, _ = get_nonce_and_balance(bridge_dest, web3_dest)
 
+
     while True:
-        current_nonce_src, _ = get_nonce_and_balance(bridge_src, web3_src)
-        current_nonce_dest, _ = get_nonce_and_balance(bridge_dest, web3_dest)
+
+        current_nonce_src, reserve_src = get_nonce_and_balance(bridge_src, web3_src)
+        current_nonce_dest, reserve_dest = get_nonce_and_balance(bridge_dest, web3_dest)
+
 
         if current_nonce_src > last_nonce_src:
             amount_to_release = get_deposit_amount(bridge_src, last_nonce_src)
             depositor_address = get_depositor(bridge_src, last_nonce_src)
-            release_tokens(bridge_dest, web3_dest, depositor_address, amount_to_release, PRIVATE_KEY_DEST)
+            reserve_out = bridge_dest.functions.getReserve().call()
+            amount_to_release_cfmm = calculate_output_amount(amount_to_release, reserve_src, reserve_out, fee_percent)
+            amount_to_release_cfmm = math.floor(amount_to_release_cfmm)  # Convert to nearest integer
+            print(f"amount to release: {amount_to_release_cfmm}")
+            release_tokens(bridge_dest, web3_dest, depositor_address, amount_to_release_cfmm, PRIVATE_KEY_DEST)
             last_nonce_src = current_nonce_src
 
         if current_nonce_dest > last_nonce_dest:
             amount_to_release = get_deposit_amount(bridge_dest, last_nonce_dest)
             depositor_address = get_depositor(bridge_dest, last_nonce_dest)
-            release_tokens(bridge_src, web3_src, depositor_address, amount_to_release, PRIVATE_KEY_SRC)
+            reserve_out = bridge_src.functions.getReserve().call()
+            amount_to_release_cfmm = calculate_output_amount(amount_to_release, reserve_dest, reserve_out, fee_percent)
+            amount_to_release_cfmm = math.floor(amount_to_release_cfmm)  # Convert to nearest integer
+            print(f"amount to release: {amount_to_release_cfmm}")
+            release_tokens(bridge_src, web3_src, depositor_address, amount_to_release_cfmm, PRIVATE_KEY_SRC)
             last_nonce_dest = current_nonce_dest
 
         time.sleep(1)
