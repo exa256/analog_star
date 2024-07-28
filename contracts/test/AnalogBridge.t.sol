@@ -1,10 +1,14 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
 
-import "forge-std/console.sol";
+pragma solidity >=0.8.0;
+
 import {Test, console} from "forge-std/Test.sol";
+import {AnalogLPBridge} from "../src/AnalogBridge.sol";
+import {GmpTestTools} from "@analog-gmp-testing/GmpTestTools.sol";
+import {Gateway} from "@analog-gmp/Gateway.sol";
+import {IGateway} from "@analog-gmp/interfaces/IGateway.sol";
+import {GmpMessage, GmpStatus, GmpSender, PrimitiveUtils} from "@analog-gmp/Primitives.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {Bridge} from "../src/Bridge.sol";
 
 contract MintableERC20 is ERC20 {
     address private _owner;
@@ -23,106 +27,150 @@ contract MintableERC20 is ERC20 {
     }
 }
 
-contract BridgeTest is Test {
-    Bridge public bridge;
-    MintableERC20 public token;
-    address public user = address(0x123);
+contract GmpTestToolsTest is Test {
+    using PrimitiveUtils for GmpSender;
+    using PrimitiveUtils for address;
 
-    function setUp() public {
-        token = new MintableERC20("Token", "TKN");
+    address private constant ALICE = address(bytes20(keccak256("Alice")));
+    address private constant BOB = address(bytes20(keccak256("Bob")));
 
-        // Mint tokens for the user and the Bridge contract
-        token.mint(user, 1000 ether);
-        token.mint(address(this), 1000 ether);
+    Gateway private constant SEPOLIA_GATEWAY = Gateway(GmpTestTools.SEPOLIA_GATEWAY);
+    uint16 private constant SEPOLIA_NETWORK = GmpTestTools.SEPOLIA_NETWORK_ID;
 
-        // Deploy the Bridge contract
-        bridge = new Bridge(address(token), "TestBridge");
+    Gateway private constant SHIBUYA_GATEWAY = Gateway(GmpTestTools.SHIBUYA_GATEWAY);
+    uint16 private constant SHIBUYA_NETWORK = GmpTestTools.SHIBUYA_NETWORK_ID;
 
-        // Transfer some tokens to the Bridge contract to provide liquidity
-        token.transfer(address(bridge), 500 ether);
-    }
+    AnalogLPBridge private shibuyaBridge;
+    AnalogLPBridge private sepoliaBridge;
 
-    function testDeposit() public {
-        uint256 amount = 100 ether;
+    MintableERC20 private shibuyaErc20;
+    MintableERC20 private sepoliaErc20;
 
-        // Approve the Bridge contract to spend tokens on behalf of the user
-        vm.startPrank(user);
-        console.log("User %s approves Bridge to spend %s tokens", user, amount);
-        token.approve(address(bridge), amount);
+    function test_bridge_tokens() external {
+        ////////////////////////////////////
+        // Step 1: Setup test environment //
+        ////////////////////////////////////
 
-        // Log balances before the deposit
-        console.log("User Token balance before deposit: %s", token.balanceOf(user));
-        console.log("Bridge Token balance before deposit: %s", token.balanceOf(address(bridge)));
+        // Deploy the gateway contracts at pre-defined addresses
+        // Also creates one fork for each supported network
+        GmpTestTools.setup();
 
-        // Perform the deposit
-        console.log("User %s performs deposit with %s tokens", user, amount);
-        uint256 depositedAmount = bridge.deposit(amount);
-        vm.stopPrank();
+        // Add funds to Alice and Bob in all networks
+        GmpTestTools.deal(ALICE, 100 ether);
+        GmpTestTools.deal(BOB, 100 ether);
 
-        // Check balances
-        console.log("Checking balances after deposit");
-        console.log("User Token balance: %s", token.balanceOf(user));
-        console.log("Bridge Token balance: %s", token.balanceOf(address(bridge)));
+        ///////////////////////////////////////////////////////
+        // Step 2: Deploy the ERC20 tokens                   //
+        ///////////////////////////////////////////////////////
 
-        assertEq(token.balanceOf(user), 900 ether);
-        assertEq(token.balanceOf(address(bridge)), 600 ether);
-        assertEq(depositedAmount, amount);
+        // Switch to Shibuya network and deploy the ERC20 using Alice account
+        GmpTestTools.switchNetwork(SHIBUYA_NETWORK, ALICE);
+        shibuyaErc20 = new MintableERC20("ShibuyaToken", "SHT");
+        shibuyaErc20.mint(ALICE, 1000);
+        assertEq(shibuyaErc20.balanceOf(ALICE), 1000, "unexpected alice balance in shibuya");
+        assertEq(shibuyaErc20.balanceOf(BOB), 0, "unexpected bob balance in shibuya");
 
-        // Check depositNonce and depositExecuted
-        console.log("Checking depositNonce and depositExecuted");
-        console.log("Bridge depositNonce: %s", bridge.depositNonce());
-        console.log("Bridge depositExecuted(0): %s", bridge.depositExecuted(0));
-        assertEq(bridge.depositNonce(), 1);
-        assertTrue(bridge.depositExecuted(0));
-    }
+        // Switch to Sepolia network and deploy the ERC20 using Bob account
+        GmpTestTools.switchNetwork(SEPOLIA_NETWORK, BOB);
+        sepoliaErc20 = new MintableERC20("SepoliaToken", "SPT");
+        sepoliaErc20.mint(BOB, 0);
+        assertEq(sepoliaErc20.balanceOf(ALICE), 0, "unexpected alice balance in sepolia");
+        assertEq(sepoliaErc20.balanceOf(BOB), 0, "unexpected bob balance in sepolia");
 
-    function testRelease() public {
-        uint256 amount = 100 ether;
+        ///////////////////////////////////////////////////////
+        // Step 3: Precompute bridge addresses               //
+        ///////////////////////////////////////////////////////
 
-        // Log balances before the release
-        console.log("User Token balance before release: %s", token.balanceOf(user));
-        console.log("Bridge Token balance before release: %s", token.balanceOf(address(bridge)));
+        AnalogLPBridge shibuyaBridge = AnalogLPBridge(vm.computeCreateAddress(ALICE, vm.getNonce(ALICE)));
+        AnalogLPBridge sepoliaBridge = AnalogLPBridge(vm.computeCreateAddress(BOB, vm.getNonce(BOB)));
 
-        // Perform the release
-        console.log("Owner performs release to user %s with %s tokens", user, amount);
-        uint256 releasedAmount = bridge.release(user, amount);
+        ///////////////////////////////////////////////////////
+        // Step 4: Deploy the bridges                        //
+        ///////////////////////////////////////////////////////
 
-        // Check balances
-        console.log("Checking balances after release");
-        console.log("User Token balance: %s", token.balanceOf(user));
-        console.log("Bridge Token balance: %s", token.balanceOf(address(bridge)));
+        // Switch to Shibuya network and deploy the bridge using Alice account
+        GmpTestTools.switchNetwork(SHIBUYA_NETWORK, ALICE);
+        console.log("%s:%s", "sepolia addr", address(sepoliaBridge));
+        shibuyaBridge = new AnalogLPBridge(SHIBUYA_GATEWAY, address(shibuyaErc20), sepoliaBridge, SEPOLIA_NETWORK, "ShibuyaBridge"); // 5 is sepolia?
 
-        assertEq(token.balanceOf(user), 1100 ether);
-        assertEq(token.balanceOf(address(bridge)), 400 ether);
-        assertEq(releasedAmount, amount);
+        // Switch to Sepolia network and deploy the bridge using Bob account
+        GmpTestTools.switchNetwork(SEPOLIA_NETWORK, BOB);
+        console.log("%s:%s", "shibuya addr", address(shibuyaBridge));
+        sepoliaBridge = new AnalogLPBridge(SEPOLIA_GATEWAY, address(sepoliaErc20), shibuyaBridge, SHIBUYA_NETWORK, "SepoliaBridge");
 
-        // Check releaseNonce and releaseExecuted
-        console.log("Checking releaseNonce and releaseExecuted");
-        console.log("Bridge releaseNonce: %s", bridge.releaseNonce());
-        console.log("Bridge releaseExecuted(0): %s", bridge.releaseExecuted(0));
-        assertEq(bridge.releaseNonce(), 1);
-        assertTrue(bridge.releaseExecuted(0));
-    }
+        ///////////////////////////////////////////////////////
+        // Step 5: Mint tokens to bridge addresses           //
+        ///////////////////////////////////////////////////////
 
-    function testGetReserve() public {
-        uint256 reserve = bridge.getReserve();
-        console.log("Bridge Token reserve: %s", reserve);
-        assertEq(reserve, 500 ether);
-    }
+        // Mint tokens to Shibuya bridge address
+        GmpTestTools.switchNetwork(SHIBUYA_NETWORK, ALICE);
+        shibuyaErc20.mint(address(shibuyaBridge), 10000);
+        assertEq(shibuyaErc20.balanceOf(address(shibuyaBridge)), 10000, "unexpected shibuya bridge balance");
 
-    function testGetCurrentDepositStatus() public {
-        (uint256 nonce, bool executed) = bridge.getCurrentDepositStatus();
-        console.log("Bridge current deposit nonce: %s", nonce);
-        console.log("Bridge current deposit executed: %s", executed);
-        assertEq(nonce, 0);
-        assertFalse(executed);
-    }
+        // Mint tokens to Sepolia bridge address
+        GmpTestTools.switchNetwork(SEPOLIA_NETWORK, BOB);
+        sepoliaErc20.mint(address(sepoliaBridge), 10000);
+        assertEq(sepoliaErc20.balanceOf(address(sepoliaBridge)), 10000, "unexpected sepolia bridge balance");
 
-    function testGetCurrentReleaseStatus() public {
-        (uint256 nonce, bool executed) = bridge.getCurrentReleaseStatus();
-        console.log("Bridge current release nonce: %s", nonce);
-        console.log("Bridge current release executed: %s", executed);
-        assertEq(nonce, 0);
-        assertFalse(executed);
+        ///////////////////////////////////////////////////////////
+        // Step 6: Approve tokens for bridge contract            //
+        ///////////////////////////////////////////////////////////
+
+        // Switch to Shibuya network and Alice account
+        GmpTestTools.switchNetwork(SHIBUYA_NETWORK, ALICE);
+        shibuyaErc20.approve(address(shibuyaBridge), 100);
+
+        ///////////////////////////////////////////////////////////
+        // Step 7: Deposit funds to destination Gateway Contract //
+        ///////////////////////////////////////////////////////////
+
+        // Switch to Sepolia network and Alice account
+        GmpTestTools.switchNetwork(SEPOLIA_NETWORK, ALICE);
+        // If the sender is a contract, its address must be converted
+        GmpSender sender = address(shibuyaErc20).toSender(true);
+        // Alice deposits 1 ether to Sepolia gateway contract
+        SEPOLIA_GATEWAY.deposit{value: 1 ether}(sender, SHIBUYA_NETWORK);
+
+        //////////////////////////////
+        // Step 8: Send GMP message //
+        //////////////////////////////
+
+        // Switch to Shibuya network and Alice account
+        GmpTestTools.switchNetwork(SHIBUYA_NETWORK, ALICE);
+
+        // Teleport 100 tokens from Alice to Bob's account in Sepolia
+        vm.expectEmit(false, true, false, true, address(shibuyaBridge));
+        emit AnalogLPBridge.DepositBridge(bytes32(0), ALICE, 100);
+        bytes32 messageID = shibuyaBridge.deposit(100);
+
+        // Now with the `messageID`, Alice can check the message status in the destination gateway contract
+        GmpTestTools.switchNetwork(SEPOLIA_NETWORK, ALICE);
+        assertTrue(
+            SEPOLIA_GATEWAY.gmpInfo(messageID).status == GmpStatus.NOT_FOUND,
+            "unexpected message status, expect 'pending'"
+        );
+
+        ///////////////////////////////////////////////////
+        // Step 9: Wait Chronicles Relay the GMP message //
+        ///////////////////////////////////////////////////
+
+        // The GMP hasn't been executed yet...
+        assertEq(sepoliaErc20.balanceOf(ALICE), 0, "unexpected alice balance in sepolia");
+
+        // Simulate relaying the message
+        vm.expectEmit(true, true, false, true, address(sepoliaBridge));
+        emit AnalogLPBridge.ReleaseBridge(messageID, ALICE, 100);
+        GmpTestTools.relayMessages();
+
+        // Success! The GMP message was executed!!!
+        assertTrue(SEPOLIA_GATEWAY.gmpInfo(messageID).status == GmpStatus.SUCCESS, "failed to execute GMP");
+
+        // Check ALICE and BOB balance in Shibuya
+        GmpTestTools.switchNetwork(SHIBUYA_NETWORK);
+        assertEq(shibuyaErc20.balanceOf(ALICE), 900, "unexpected alice's balance in shibuya");
+
+        // Check ALICE and BOB balance in Sepolia
+        GmpTestTools.switchNetwork(SEPOLIA_NETWORK);
+        assertGt(sepoliaErc20.balanceOf(ALICE), 0, "unexpected alice's balance in sepolia");
     }
 }

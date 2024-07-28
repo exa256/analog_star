@@ -95,11 +95,6 @@ class TestIntegrationShortestPath(unittest.TestCase):
         tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
         web3.eth.wait_for_transaction_receipt(tx_hash)
 
-        # # Polling for reserve change on the destination chain
-        # while True:
-        #     new_reserve = bridge.get_b_reserve() if from_token.name.endswith("A") else bridge.get_a_reserve()
-        #     if new_reserve < initial_reserve:
-        #         break
         time.sleep(2)
 
         return tx_hash

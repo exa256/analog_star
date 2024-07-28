@@ -4,12 +4,12 @@
 - [x] configure script to deploy contracts on test chain
 - [x] djikstra algorithm integrated with real chain data
 - [ ] exposed flask api for client to fetch contracts, get pathfinding routes
-- [ ] navigator script that executes the path for user
+- [x] navigator script that executes the path for user
 - [ ] cleanup & setup verification scripting
 - [ ] nice to have: local env orchestrations based on a JSON configuration
 
 Analog specific:
-- [ ] use Analog GMP for trustless bridging
+- [x] use Analog GMP for trustless bridging
 - [ ] deploy contracts and run on testnet
 
 Wallet specific:
@@ -26,10 +26,13 @@ using `python 3.12.3`
 2. install web3.py `pip install web3`
 
 ## Test contract and pathway modules
+install all forge dependencies:
+`forge install Analog-Labs/analog-gmp`
+`forge install OpenZeppelin/openzeppelin-contracts`
 
 inside ./contracts, run
 `forge compile`
-`forge test`
+`forge test -vvvv`
 
 in root dir, run
 `python3 -m unittest test_shortest_path test_lp_exchange`
