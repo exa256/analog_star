@@ -1,0 +1,107 @@
+\documentclass{beamer}
+
+\title{Analog Star: Omnichain Liquidity Aggregation}
+\subtitle{Solving Liquidity Fragmentation and Bridging Gaps}
+\author{Your Name}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{Problem}
+    \begin{itemize}
+        \item Liquidity fragmentation
+        \item Bridges lack multihop capabilities
+        \item No abstraction over DEX and bridge
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Solution}
+    \textbf{Analog Star: Omnichain Liquidity Aggregation}
+\end{frame}
+
+\begin{frame}{Features}
+    \begin{itemize}
+        \item A* path finding
+        \item Analog Cross Chain AMM
+        \item Trustless Wallet Navigation
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Dijkstra Algorithm Formula}
+    % Add LaTeX code for the formula here later
+\end{frame}
+
+\begin{frame}{Dijkstra's Algorithm for Token Swaps}
+    \textbf{Definition:} \\
+    Dijkstra's algorithm finds the shortest path between nodes in a weighted graph. In our context, nodes represent token pairs, and weights represent slippage and fees.
+
+    \vspace{0.5cm}
+    \textbf{Algorithm Steps:}
+    \begin{enumerate}
+        \item Initialize the shortest path from the initial node to all other nodes as infinity, except for the initial node which is set to zero.
+        \item Set the initial node as the current node.
+        \item For the current node, consider all its unvisited neighbors and calculate their tentative distances through the current node.
+        \item Compare the newly calculated tentative distance to the current assigned value and assign the smaller one.
+        \item Mark the current node as visited.
+        \item Select the unvisited node with the smallest tentative distance as the new "current node" and repeat steps 3-5 until the target node is reached or all nodes are visited.
+    \end{enumerate}
+\end{frame}
+\begin{frame}{Dijkstra's Algorithm Steps}
+    \vspace{0.5cm}
+    \textbf{Mathematical Representation:}
+    \begin{align*}
+        \text{Let } G = (V, E) & \text{ be a graph where } V \text{ is the set of nodes and } E \text{ is the set of edges.} \\
+        \text{Let } d(u, v) & \text{ be the weight of the edge between nodes } u \text{ and } v. \\
+        \text{Let } D(v) & \text{ be the shortest distance from the initial node to node } v. \\
+        \text{Initialize:} & \\
+        D(v) & = \begin{cases} 
+            0 & \text{if } v \text{ is the initial node} \\
+            \infty & \text{otherwise}
+        \end{cases} \\
+        \text{For each node } u \in V: & \\
+        \text{For each neighbor } v \text{ of } u: & \\
+        D(v) & = \min(D(v), D(u) + d(u, v))
+    \end{align*}
+
+    \vspace{0.5cm}
+\end{frame}
+
+\begin{frame}{Simulation Showcase}
+    Ran across Gnosis, Optimism, and ZkSync
+\end{frame}
+
+\begin{frame}{Analog Cross Chain AMM}
+    \begin{itemize}
+        \item What is it?
+        \item Why is it important?
+        \item Standard, uniform way of calculating liquidity
+        \item Trustless, arbitrary LP pairs among different chains
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Illustration of Analog Cross Chain AMM}
+    \begin{itemize}
+        \item Showing two chains with Analog GMP in between
+        \item Link to test and reference implementation
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Analog Star Product Wrapper}
+    \begin{itemize}
+        \item Bridge Aggregator Dapp
+        \item Multichain Abstracted Wallet
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Future Works and Improvements}
+    \begin{itemize}
+        \item AI-driven heuristics function
+        \item Analog Watch for fetching liquidity data
+    \end{itemize}
+\end{frame}
+
+\end{document}

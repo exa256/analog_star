@@ -1,23 +1,15 @@
-## TODO
 
-- [x] write mock smart contracts (dexs and bridges)
-- [x] configure script to deploy contracts on test chain
-- [x] djikstra algorithm integrated with real chain data
-- [ ] exposed flask api for client to fetch contracts, get pathfinding routes
-- [x] navigator script that executes the path for user
-- [ ] cleanup & setup verification scripting
-- [ ] nice to have: local env orchestrations based on a JSON configuration
+# Analog * Liquidity Aggregator
+> Omni chain liquidity aggregator
 
-Analog specific:
-- [x] use Analog GMP for trustless bridging
-- [ ] deploy contracts and run on testnet
-
-Wallet specific:
-- [ ] write CLI for control planes executing txs for best path
-- [ ] multi input single output transaction 
-
-Not do:
-- account abstraction
+```
+Found path for start token: sUSDC-A on SourceChain to dUSDC-A on DestinationChain
+Route chosen is:
+Using DEX-A to swap sUSDC-A on SourceChain to sUSDC-B on SourceChain
+Using Bridge-B to swap sUSDC-B on SourceChain to dUSDC-B on DestinationChain
+Using DEX-B to swap dUSDC-B on DestinationChain to dUSDC-A on DestinationChain
+Total Estimate Slippage Incurred: 0.243 USDC
+```
 
 ## Installation
 using `python 3.12.3`
@@ -26,18 +18,22 @@ using `python 3.12.3`
 2. install web3.py `pip install web3`
 
 ## Test contract and pathway modules
-install all forge dependencies:
-`forge install Analog-Labs/analog-gmp`
-`forge install OpenZeppelin/openzeppelin-contracts`
+install all forge dependencies, inside ./contracts:
+`forge install`
+libs we will use for this Analog are:
+1. Analog-Labs/analog-gmp
+2. OpenZeppelin/openzeppelin-contracts
 
-inside ./contracts, run
 `forge compile`
+### Smart contract tests
+Run all smart contract tests:
 `forge test -vvvv`
 
+### Pathway unit tests
 in root dir, run
 `python3 -m unittest test_shortest_path test_lp_exchange`
 
-## Running Dev Environment
+## Dev Environment and Integration Tests
 
 compile smart contracts
 `cd ./contracts && forge compile`
@@ -60,6 +56,12 @@ you should see token released, logs from local rpcs and log on bridge listener
 running a test shortest path algorithm on real deployed contracts
 `python3 -m unittest test_integration_shortest_path`
 
+## Code
+### What's implemented 
+- working Djikstra's Algorithm for most cost efficient omni chain pathfinding with no limit to number of chains, assets and edges
+- Djikstra's algorithm in pure Python unit test as well as with real Solidity CFMM DEX and Bridge
+- implementation of standard CFMM Bridge and DEX contracts
+- Bridge service implemented as a python listener as well as `AnalogBridge` which utilizes GMP message passing to perform cross chain swap over double sided liquidity pool. 
 
 ### Integration:
 Following will be the static addresses for contracts deployed, given a fresh chain script is ran successfully
@@ -84,4 +86,8 @@ The `Dex` contract is a decentralized exchange that allows swapping between two 
 
 The `Bridge` contract facilitates token transfers between different blockchain networks. It allows users to deposit tokens into the contract and the owner to release tokens to specified addresses. The contract keeps track of deposit and release nonces, ensuring each operation is executed only once. It also provides functions to query the status and details of deposits and releases.
 
+The `AnalogBridge` contract utilize Analog GMP to facilitate trustless cross chain transfer between network. Currently limited to Shibuya and Sepolia testnet and cannot be used in local dev environment given Anvil and GMP tooling limitations.
+
 ABIs can be found in ./contracts/out dir
+
+`pathway.py` contains reference working implementation of djikstra algorithm for finding shortest path for wallet swap across multiple networks and chains. Refer to unit test and integration tests for reference.
