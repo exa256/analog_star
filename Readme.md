@@ -91,3 +91,34 @@ The `AnalogBridge` contract utilize Analog GMP to facilitate trustless cross cha
 ABIs can be found in ./contracts/out dir
 
 `pathway.py` contains reference working implementation of djikstra algorithm for finding shortest path for wallet swap across multiple networks and chains. Refer to unit test and integration tests for reference.
+
+## Dapp and Testnet
+
+Testnet utilizes bridge and erc20 contracts deployed on Shibuya and Sepolia which are supported Analog GMP testnets multichain environments
+
+Link to demo app for the bridge can be found here: https://analog-bridge-app.vercel.app
+note that the front end bridge dapp is supported in a standalone mode and not integrated with path finder algorithm
+
+Testnet contracts are deployed with configurations below:
+```
+// Shibuya
+// lp contract on shibuya is 0x6f978Fc5909CaCCA93fABe3BaC75C12a1856f8F7
+// lp bridge on both should be 0x6f978Fc5909CaCCA93fABe3BaC75C12a1856f8F7
+// erc20 is 0xC6BfD304d993aBc9A00Af873465a05234cd79acD
+// gateway shib is 0x000000007f56768de3133034fa730a909003a165
+// sepolia network is 5
+// name shibuya-usdc-sepolia
+// real lp bridge contract in bytes32: 0x0000000000000000000000016f978fc5909cacca93fabe3bac75c12a1856f8f7
+```
+```
+// Sepolia
+// lp contract on sepolia is 0x6f978Fc5909CaCCA93fABe3BaC75C12a1856f8F7
+// lp bridge on both should be 0x6f978Fc5909CaCCA93fABe3BaC75C12a1856f8F7
+// erc20 is 0xa3DD50f2481d655d9E6e1cB14F0BE417338BB6bb
+// gateway sep is 0x000000007f56768de3133034fa730a909003a165
+// shibuya network ID is 7
+// name sepolia-usdc-shibuya
+// real lp bridge contract in bytes32: 0x0000000000000000000000016f978fc5909cacca93fabe3bac75c12a1856f8f7
+```
+
+
